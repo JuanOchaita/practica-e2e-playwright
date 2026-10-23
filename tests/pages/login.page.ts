@@ -17,6 +17,14 @@ export class LoginPage {
     await this.page.goto("/");
   }
 
+  async gotoProtected(path: string) {
+    await this.page.goto(path);
+  }
+
+  async expectLoginUrl() {
+    await expect(this.page).toHaveURL(/\/(?:index\.html)?(?:\?sesion)?$/);
+  }
+
   async login(user: string, password = "calidad2026") {
     await this.user.fill(user);
     await this.password.fill(password);

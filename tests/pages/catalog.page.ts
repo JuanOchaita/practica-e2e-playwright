@@ -21,6 +21,10 @@ export class CatalogPage {
     await this.sort.selectOption(order);
   }
 
+  async expectOrder(order: SortOrder) {
+    await expect(this.sort).toHaveValue(order);
+  }
+
   product(name: string) {
     return this.products.filter({ has: this.page.getByRole("heading", { name }) });
   }

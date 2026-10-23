@@ -18,6 +18,21 @@ test.describe("Ingreso y sesión", () => {
     await login.expectError("Este usuario está bloqueado.");
   });
 
+  test("Regla: credenciales incorrectas no permiten entrar | Técnica: partición de equivalencia", async ({ login }) => {
+    await login.goto();
+    await login.login("no-existe");
+    await login.expectError("Usuario o contraseña incorrectos.");
+    await login.login("estandar", "incorrecta");
+    await login.expectError("Usuario o contraseña incorrectos.");
+  });
+
+  test("Regla: cualquier página protegida redirige al ingreso sin sesión | Técnica: transición de estados", async ({ login }) => {
+    for (const path of ["catalogo.html", "carrito.html", "checkout.html", "resumen.html", "confirmacion.html"]) {
+      await login.gotoProtected(path);
+      await login.expectLoginUrl();
+    }
+  });
+
   test("Regla: cerrar sesión vacía el carrito | Técnica: transición de estados", async ({ login, catalog, cart }) => {
     await login.goto();
     await login.login("estandar");
@@ -59,6 +74,19 @@ test.describe("Catálogo y carrito", () => {
     await expect.poll(() => catalog.prices()).toEqual(["Q350.00", "Q225.00", "Q140.00", "Q75.00", "Q60.00", "Q25.00"]);
   });
 
+  test("Regla: ordenar por nombre Z-A | Técnica: partición de equivalencia", async ({ catalog }) => {
+    await catalog.selectOrder("za");
+    await catalog.expectOrder("za");
+    await expect.poll(() => catalog.productNames()).toEqual([
+      "Taza de barro",
+      "Prensa francesa",
+      "Molino manual",
+      "Filtros de papel (100)",
+      "Café de Huehuetenango 250 g",
+      "Café de Antigua 500 g"
+    ]);
+  });
+
   test("Regla: cada producto se agrega una vez y el contador suma unidades | Técnica: partición de equivalencia", async ({ catalog, cart }) => {
     await catalog.addProduct(PRODUCT);
     await expect(catalog.cartCount).toHaveText("1");
@@ -66,6 +94,16 @@ test.describe("Catálogo y carrito", () => {
     await expect(cart.row(PRODUCT)).toHaveCount(1);
     await cart.setQuantity(PRODUCT, "3");
     await expect(catalog.cartCount).toHaveText("3");
+  });
+
+  test("Regla: cantidad válida de 1 a 5 por producto | Técnica: análisis de valores límite", async ({ catalog, cart }) => {
+    await catalog.addProduct(PRODUCT);
+    await catalog.openCart();
+    await cart.setQuantity(PRODUCT, "1");
+    await expect(catalog.cartCount).toHaveText("1");
+    await cart.setQuantity(PRODUCT, "5");
+    await expect(catalog.cartCount).toHaveText("5");
+    await expect(cart.continueButton).toBeEnabled();
   });
 
   test("Regla: cantidad inválida no permite continuar | Técnica: análisis de valores límite", async ({ catalog, cart }) => {
@@ -129,6 +167,17 @@ test.describe("Checkout y cálculo", () => {
     await summary.expectAmounts("Q75.00", "-Q0.00", "Q0.00", "Q75.00");
   });
 
+  test("Regla: ENVIOGRATIS elimina el envío también en código postal 01 | Técnica: tabla de decisión", async ({ login, catalog, cart, checkout, summary }) => {
+    await login.goto();
+    await login.login("estandar");
+    await catalog.addProduct(PRODUCT);
+    await catalog.openCart();
+    await cart.continueToCheckout();
+    await checkout.fillShipping("Ana", "Pérez", "01001", "ENVIOGRATIS");
+    await checkout.submit();
+    await summary.expectAmounts("Q75.00", "-Q0.00", "Q0.00", "Q75.00");
+  });
+
   test("Regla: cualquier cupón distinto de ENVIOGRATIS es inválido | Técnica: partición de equivalencia", async ({ login, catalog, cart, checkout }) => {
     await login.goto();
     await login.login("estandar");
@@ -163,6 +212,17 @@ test.describe("Checkout y cálculo", () => {
     await summary.expectAmounts("Q200.00", "-Q10.00", "Q25.00", "Q215.00");
   });
 
+  test("Regla: envío cuesta Q40 fuera de código postal 01 | Técnica: partición de equivalencia", async ({ login, catalog, cart, checkout, summary }) => {
+    await login.goto();
+    await login.login("estandar");
+    await catalog.addProduct(PRODUCT);
+    await catalog.openCart();
+    await cart.continueToCheckout();
+    await checkout.fillShipping("Ana", "Pérez", "10001");
+    await checkout.submit();
+    await summary.expectAmounts("Q75.00", "-Q0.00", "Q40.00", "Q115.00");
+  });
+
   test("Regla: descuento de 10% desde Q500 y envío gratis desde Q300 | Técnica: análisis de valores límite", async ({ login, catalog, cart, checkout, summary }) => {
     await login.goto();
     await login.login("estandar");
@@ -174,6 +234,19 @@ test.describe("Checkout y cálculo", () => {
     await checkout.fillShipping("Ana", "Pérez", "99000");
     await checkout.submit();
     await summary.expectAmounts("Q565.00", "-Q56.50", "Q0.00", "Q508.50");
+  });
+
+  test("Regla: descuento de 10% comienza exactamente en Q500 | Técnica: análisis de valores límite", async ({ login, catalog, cart, checkout, summary }) => {
+    await login.goto();
+    await login.login("estandar");
+    for (const product of ["Prensa francesa", "Café de Antigua 500 g", PRODUCT, "Taza de barro"]) {
+      await catalog.addProduct(product);
+    }
+    await catalog.openCart();
+    await cart.continueToCheckout();
+    await checkout.fillShipping("Ana", "Pérez", "99000");
+    await checkout.submit();
+    await summary.expectAmounts("Q500.00", "-Q50.00", "Q0.00", "Q450.00");
   });
 
   test("Regla: confirmar genera pedido de 6 dígitos y vacía carrito | Técnica: transición de estados", async ({ login, catalog, cart, checkout, summary, confirmation }) => {

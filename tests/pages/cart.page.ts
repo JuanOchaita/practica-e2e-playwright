@@ -26,6 +26,11 @@ export class CartPage {
     await this.continueButton.click();
   }
 
+  async expectEmpty() {
+    await expect(this.rows).toHaveCount(0);
+    await expect(this.page.getByTestId("vacio")).toBeVisible();
+  }
+
   async expectQuantityError() {
     await expect(this.error).toHaveText("La cantidad tiene que estar entre 1 y 5.");
   }
