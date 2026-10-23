@@ -29,7 +29,17 @@
 | `REQUISITOS.md` | Los programas que hay que instalar y cómo conectar el MCP de Playwright a Claude Code o a Codex. |
 | `.github/workflows/pages.yml` | Publica la tienda en GitHub Pages en cada push a `main`. |
 
-El repositorio no trae pruebas, porque la suite es el ejercicio.
+La suite de pruebas está en `tests/`, usa Page Object Model y deja el reporte HTML en `playwright-report/`.
+
+Para instalar dependencias y ejecutar la suite:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+Los casos que detectan defectos sembrados quedan en rojo deliberadamente. Los hallazgos están documentados en [`DEFECTOS.md`](DEFECTOS.md).
 
 ## Cómo abrir la tienda
 
